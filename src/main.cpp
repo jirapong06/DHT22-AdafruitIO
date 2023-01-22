@@ -58,6 +58,60 @@ void initAIO() {
   Serial.println(WiFi.localIP());
 }
 
+float read_DHT_Temp() {
+  float bufRead;
+  for (int i=0; i<10; i++) {
+    digitalWrite(13, HIGH);
+    bufRead = tempKalmanFilter.updateEstimate(dht.readTemperature());
+    delay(1000);
+    digitalWrite(13, LOW);
+  }
+  digitalWrite(13, HIGH);
+  return bufRead;
+}
+
+float read_DHT_Hum() {
+  float bufRead;
+  for (int i=0; i<10; i++) {
+    digitalWrite(13, HIGH);
+    bufRead = humKalmanFilter.updateEstimate(dht.readHumidity());
+    delay(1000);
+    digitalWrite(13, LOW);
+  }
+  digitalWrite(13, HIGH);
+  return bufRead;
+}
+
+float read_DS18_Temp() {
+  float bufRead;
+  for (int i=0; i<10; i++) {
+    digitalWrite(13, HIGH);
+    ds18b20.requestTemperatures();
+    bufRead = tempKalmanFilter1.updateEstimate(ds18b20.getTempCByIndex(0));
+    delay(1000);
+    digitalWrite(13, LOW);
+  }
+  digitalWrite(13, HIGH);
+  return bufRead;
+}
+
+void send_log_data() {
+  tempSensor = read_DHT_Temp();
+  Serial.print("Temp = ");
+  Serial.println(tempSensor);
+  tempFeed->save(tempSensor);
+
+  humiditySensor = read_DHT_Hum();
+  Serial.print("Humidity = ");
+  Serial.println(humiditySensor);
+  humFeed->save(humiditySensor);
+
+  tempSensor_DS = read_DS18_Temp();
+  Serial.print("Temp1 = ");
+  Serial.println(tempSensor_DS);
+  tempFeed1->save(tempSensor_DS);
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(13, OUTPUT);
@@ -67,6 +121,7 @@ void setup() {
   dht.begin();
   ds18b20.begin();
   digitalWrite(13, HIGH);
+  send_log_data();
 }
 
 void loop() {
@@ -78,33 +133,8 @@ void loop() {
     previousReconnect = millis();
   }
 
-  if (millis() - previousRead >= intervalRead) {
-
-    for (int i=0; i<10; i++) {
-      digitalWrite(13, HIGH);
-      humiditySensor = humKalmanFilter.updateEstimate(dht.readHumidity());
-      tempSensor = tempKalmanFilter.updateEstimate(dht.readTemperature());
-
-      ds18b20.requestTemperatures();
-      tempSensor_DS = tempKalmanFilter1.updateEstimate(ds18b20.getTempCByIndex(0));
-      digitalWrite(13, LOW);
-      delay(1000);
-    }
-    digitalWrite(13, HIGH);
-    
-
-    Serial.print("Temp = ");
-    Serial.println(tempSensor);
-    tempFeed->save(tempSensor);
-
-    Serial.print("Humidity = ");
-    Serial.println(humiditySensor);
-    humFeed->save(humiditySensor);
-
-    Serial.print("Temp1 = ");
-    Serial.println(tempSensor_DS);
-    tempFeed1->save(tempSensor_DS);
-
+  if (millis() - previousRead >= intervalRead) {    
+    send_log_data();
     previousRead = millis();
   }
 
