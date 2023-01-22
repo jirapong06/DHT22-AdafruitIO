@@ -12,10 +12,17 @@ DHT dht(DHTPIN, DHTTYPE);
 float tempSensor; 
 float humiditySensor;
 
+#include <OneWire.h>
+#include <DallasTemperature.h>
+const int oneWireBus = 4;     
+OneWire oneWire(oneWireBus);
+DallasTemperature ds18b20(&oneWire);
+float tempSensor_DS;
 
 #include "AdafruitIO_WiFi.h"
 AdafruitIO_WiFi io(IO_USERNAME, IO_KEY, ssid, password);
 AdafruitIO_Feed *tempFeed = io.feed("roomTemp");
+AdafruitIO_Feed *tempFeed1 = io.feed("roomTemp1");
 AdafruitIO_Feed *humFeed = io.feed("roomHumidity");
 
 unsigned long previousReconnect = 0;
@@ -26,6 +33,8 @@ unsigned long intervalRead = 10 * 60000;
 #include <SimpleKalmanFilter.h>
 SimpleKalmanFilter tempKalmanFilter(2, 2, 1);
 SimpleKalmanFilter humKalmanFilter(2, 2, 1);
+SimpleKalmanFilter tempKalmanFilter1(2, 2, 1);
+SimpleKalmanFilter humKalmanFilter1(2, 2, 1);
 
 void initWiFi() {
   WiFi.mode(WIFI_STA);
@@ -56,6 +65,7 @@ void setup() {
   // initWiFi();
   initAIO();
   dht.begin();
+  ds18b20.begin();
   digitalWrite(13, HIGH);
 }
 
@@ -71,10 +81,16 @@ void loop() {
   if (millis() - previousRead >= intervalRead) {
 
     for (int i=0; i<10; i++) {
+      digitalWrite(13, HIGH);
       humiditySensor = humKalmanFilter.updateEstimate(dht.readHumidity());
       tempSensor = tempKalmanFilter.updateEstimate(dht.readTemperature());
+
+      ds18b20.requestTemperatures();
+      tempSensor_DS = tempKalmanFilter1.updateEstimate(ds18b20.getTempCByIndex(0));
+      digitalWrite(13, LOW);
       delay(1000);
     }
+    digitalWrite(13, HIGH);
     
 
     Serial.print("Temp = ");
@@ -84,6 +100,10 @@ void loop() {
     Serial.print("Humidity = ");
     Serial.println(humiditySensor);
     humFeed->save(humiditySensor);
+
+    Serial.print("Temp1 = ");
+    Serial.println(tempSensor_DS);
+    tempFeed1->save(tempSensor_DS);
 
     previousRead = millis();
   }
